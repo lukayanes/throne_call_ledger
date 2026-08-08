@@ -1,0 +1,34 @@
+name = "call-ledger-worker-2"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[observability]
+enabled = true
+
+  [observability.logs]
+  invocation_logs = true
+  head_sampling_rate = 1
+
+[vars]
+LEDGER_SHEET_NAME = "Call Ledger"
+FIRST_DATA_ROW = "5"
+GOOGLE_SHEET_ID = "1RB1w6vv6t6jeAUlQMSF15FN8FbKOOcVpudkvB3-zHtI"
+GOOGLE_SERVICE_ACCOUNT_EMAIL = "ghl-call-leder@ghl-call-ledger.iam.gserviceaccount.com"
+
+# Queue: same worker is both producer (webhook) and consumer (processing).
+# NOTE: different queue name than Summit's so the two accounts never mix.
+[[queues.producers]]
+queue = "call-ledger-queue-2"
+binding = "CALL_QUEUE"
+
+[[queues.consumers]]
+queue = "call-ledger-queue-2"
+max_retries = 5
+max_batch_timeout = 30
+
+# Secrets — set in Cloudflare dashboard (or `wrangler secret put`), NOT in this file:
+#   GHL_API_KEY          — the new sub-account's key
+#   GHL_LOCATION_ID      — the new sub-account's location ID
+#   ANTHROPIC_API_KEY    — same as Summit
+#   OPENAI_API_KEY       — same as Summit
+#   GOOGLE_PRIVATE_KEY   — same as Summit
