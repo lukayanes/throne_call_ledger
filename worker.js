@@ -99,7 +99,7 @@ export default {
 //  MAIN PIPELINE
 // ═══════════════════════════════════════════════════════════════════
 
-const BUILD_VERSION = "v7-existing-headers";
+const BUILD_VERSION = "v8-json-fix";
 const MAX_ATTEMPTS = 5; // GHL attaches call recordings up to ~1 min after the call ends
 
 async function processCall(payload, env, attempts = 1) {
@@ -608,7 +608,7 @@ ${transcript}`;
       },
       body: JSON.stringify({
         model: env.ANTHROPIC_MODEL || "claude-sonnet-5",
-        max_tokens: 2048,
+        max_tokens: 4096,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -616,14 +616,22 @@ ${transcript}`;
     if (resp.ok) {
       const result = await resp.json();
       const blocks = Array.isArray(result.content) ? result.content : [];
-      const text = blocks.map(b => (b && typeof b.text === "string" ? b.text : "")).join("").trim();
+      let text = blocks.map(b => (b && typeof b.text === "string" ? b.text : "")).join("").trim();
+      text = text.replace(/```(?:json)?/gi, "").trim(); // strip code fences if present
       if (!text) {
         console.error("Claude returned no text block. Raw:", JSON.stringify(result).substring(0, 300));
         return {};
       }
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) return JSON.parse(jsonMatch[0]);
-      console.error("Claude response had no JSON object:", text.substring(0, 200));
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch (e) {
+          console.error(`Claude JSON parse failed (stop_reason: ${result.stop_reason}):`, e.message);
+          return {};
+        }
+      }
+      console.error(`Claude response had no JSON object (stop_reason: ${result.stop_reason}):`, text.substring(0, 200));
     } else {
       console.error("Claude error:", (await resp.text()).substring(0, 300));
     }
